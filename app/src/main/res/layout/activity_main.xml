@@ -10,7 +10,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:onClick="startTask"
-        android:text="Start Task"
+        android:text="Start Service"
         android:textAllCaps="false"
         />
 
