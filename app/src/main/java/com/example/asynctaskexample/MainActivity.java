@@ -3,6 +3,8 @@ package com.example.asynctaskexample;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.app.Activity;
+import android.app.job.JobInfo;
+import android.app.job.JobScheduler;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -17,6 +19,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 public class MainActivity extends AppCompatActivity
 {
@@ -26,23 +29,18 @@ public class MainActivity extends AppCompatActivity
     private ProgressBar progressBar;
     private TextView textView;
     private MyService myService;
-    private ServiceConnection serviceConnection = new ServiceConnection()
+    private BroadcastReceiver broadcastReceiver = new BroadcastReceiver()
     {
         @Override
-        public void onServiceConnected(ComponentName name, IBinder service)
+        public void onReceive(Context context, Intent intent)
         {
-            MyService.ServiceBinder serviceBinder = (MyService.ServiceBinder) service;
-            myService = serviceBinder.getService();
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName name)
-        {
-            if(myService!=null)
+            if(intent.getExtras()!=null)
             {
-                myService = null;
-            }
-        } // onService Disconnected
+                Log.d(TAG, "onReceive: "+intent.getStringExtra("title"));
+                progressBar.setVisibility(View.GONE);
+                textView.setText(intent.getStringExtra("title"));
+            } // if closed
+        }
     };
 
     @Override
@@ -54,27 +52,32 @@ public class MainActivity extends AppCompatActivity
         progressBar = findViewById(R.id.progressBarMainActivity);
         textView = findViewById(R.id.texViewMainActivity);
     } // onCreate closed
+    public void onClickStart(View view)
+    {
 
+        JobScheduler jobScheduler = (JobScheduler) getSystemService(Context.JOB_SCHEDULER_SERVICE);
+        JobInfo jobInfo = new JobInfo.Builder(1,new ComponentName(MainActivity.this,MyService.class))
+                .setMinimumLatency(0)
+                .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                .setPersisted(true)
+                .setPeriodic(15*60*1000)
+                .build();
+            jobScheduler.schedule(jobInfo);
+        progressBar.setVisibility(View.VISIBLE);
+        Toast.makeText(MainActivity.this, "Job Scheduled", Toast.LENGTH_SHORT).show();
+    } // onClickStart closed
+    public void onClickCanceled(View view)
+    {
+        JobScheduler jobScheduler = (JobScheduler) getSystemService(Context.JOB_SCHEDULER_SERVICE);
+        jobScheduler.cancel(1);
+        progressBar.setVisibility(View.GONE);
+        Toast.makeText(MainActivity.this, "Job Canceled", Toast.LENGTH_SHORT).show();
+    }
 
     @Override
     protected void onStart()
     {
         super.onStart();
-        Intent intent = new Intent(MainActivity.this,MyService.class);
-        bindService(intent,serviceConnection,Context.BIND_AUTO_CREATE);
-        Log.d(TAG, "onStart: ");
-    }
-
-    @Override
-    protected void onStop()
-    {
-        super.onStop();
-        unbindService(serviceConnection);
-        Log.d(TAG, "onStop: Unbinded");
-    }
-
-    public void onClick(View view)
-    {
-        textView.setText(myService.helloWorld());
+        registerReceiver(broadcastReceiver,new IntentFilter("Response"));
     }
 } // MainActivity closed
