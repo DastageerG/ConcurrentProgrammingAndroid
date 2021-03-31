@@ -9,7 +9,7 @@
     <Button
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:onClick="startTask"
+        android:onClick="onClick"
         android:text="Start Service"
         android:textAllCaps="false"
         />

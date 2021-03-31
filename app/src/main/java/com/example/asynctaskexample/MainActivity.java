@@ -4,12 +4,15 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import android.app.Activity;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.ServiceConnection;
 import android.icu.util.BuddhistCalendar;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.util.Log;
 import android.view.View;
 import android.widget.ProgressBar;
@@ -22,28 +25,24 @@ public class MainActivity extends AppCompatActivity
     public static final String NUM = "send";
     private ProgressBar progressBar;
     private TextView textView;
-
-    private BroadcastReceiver broadcastReceiver = new BroadcastReceiver()
+    private MyService myService;
+    private ServiceConnection serviceConnection = new ServiceConnection()
     {
         @Override
-        public void onReceive(Context context, Intent intent)
+        public void onServiceConnected(ComponentName name, IBinder service)
         {
-            Bundle bundle = intent.getExtras();
-            if(bundle!=null)
-            {
-                int sum = bundle.getInt("SUM");
-                int result = bundle.getInt("RESULT");
+            MyService.ServiceBinder serviceBinder = (MyService.ServiceBinder) service;
+            myService = serviceBinder.getService();
+        }
 
-                if(result == RESULT_OK)
-                {
-                    textView.setText("Sum = "+sum);
-                } // if closed
-                else
-                {
-                    textView.setText("Process failed");
-                }
-            } // if closed
-        } // onReceive closed
+        @Override
+        public void onServiceDisconnected(ComponentName name)
+        {
+            if(myService!=null)
+            {
+                myService = null;
+            }
+        } // onService Disconnected
     };
 
     @Override
@@ -56,78 +55,26 @@ public class MainActivity extends AppCompatActivity
         textView = findViewById(R.id.texViewMainActivity);
     } // onCreate closed
 
-    public void startTask(View view)
-    {
-        Intent intent = new Intent(getApplicationContext(),MyService.class);
-        intent.putExtra(NUM,345);
-        startService(intent);
-    }
-
-//    private class MyAsyncTask extends AsyncTask<Integer,Integer,String>
-//    {
-//        int count = 0;
-//        @Override
-//        protected void onPreExecute()
-//        {
-//            super.onPreExecute();
-//            progressBar.setVisibility(View.VISIBLE);
-//
-//        } // onPreExecute closed
-//
-//        @Override
-//        protected void onProgressUpdate(Integer... values)
-//        {
-//            super.onProgressUpdate(values);
-//            textView.setText("Running  ...  "+String.valueOf(values[0]));
-//            progressBar.setProgress(values[0]);
-//        }
-//
-//        @Override
-//        protected String doInBackground(Integer... integers)
-//        {
-//            for(;count<=integers[0];count++)
-//            {
-//                try
-//                {
-//                    Thread.sleep(1000);
-//                    publishProgress(count);
-//                }catch (Exception e)
-//                {
-//                    Log.d(TAG, "doInBackground: "+e.getMessage());
-//                }
-//            }
-//            return "Task Completed";
-//        } // doInBackground closed
-//
-//        @Override
-//        protected void onPostExecute(String s)
-//        {
-//            super.onPostExecute(s);
-//            textView.setText(s);
-//            progressBar.setVisibility(View.GONE);
-//        }  // onPostExecute closed
-
-//    } // MyAsyncTask closed
-
-
-    @Override
-    protected void onResume()
-    {
-        super.onResume();
-        registerReceiver(broadcastReceiver,new IntentFilter(MyService.Notification));
-    }
-
-    @Override
-    protected void onPause()
-    {
-        super.onPause();
-        unregisterReceiver(broadcastReceiver);
-    }
 
     @Override
     protected void onStart()
     {
         super.onStart();
+        Intent intent = new Intent(MainActivity.this,MyService.class);
+        bindService(intent,serviceConnection,Context.BIND_AUTO_CREATE);
+        Log.d(TAG, "onStart: ");
+    }
 
-    } // onStart closed
+    @Override
+    protected void onStop()
+    {
+        super.onStop();
+        unbindService(serviceConnection);
+        Log.d(TAG, "onStop: Unbinded");
+    }
+
+    public void onClick(View view)
+    {
+        textView.setText(myService.helloWorld());
+    }
 } // MainActivity closed
