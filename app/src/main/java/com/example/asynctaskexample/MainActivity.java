@@ -1,6 +1,16 @@
 package com.example.asynctaskexample;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.Observer;
+import androidx.work.Constraints;
+import androidx.work.NetworkType;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.WorkInfo;
+import androidx.work.WorkManager;
+import androidx.work.WorkRequest;
+import androidx.work.Data;
+
+
 
 import android.app.Activity;
 import android.app.job.JobInfo;
@@ -15,33 +25,24 @@ import android.icu.util.BuddhistCalendar;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.provider.ContactsContract;
 import android.util.Log;
 import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.util.UUID;
+
 public class MainActivity extends AppCompatActivity
 {
 
-    private static final String TAG = "1234";
+    public static final String TAG = "1234";
     public static final String NUM = "send";
     private ProgressBar progressBar;
     private TextView textView;
-    private MyService myService;
-    private BroadcastReceiver broadcastReceiver = new BroadcastReceiver()
-    {
-        @Override
-        public void onReceive(Context context, Intent intent)
-        {
-            if(intent.getExtras()!=null)
-            {
-                Log.d(TAG, "onReceive: "+intent.getStringExtra("title"));
-                progressBar.setVisibility(View.GONE);
-                textView.setText(intent.getStringExtra("title"));
-            } // if closed
-        }
-    };
+    private Context context = MainActivity.this;
+    private UUID uuid;
 
     @Override
     protected void onCreate(Bundle savedInstanceState)
@@ -54,30 +55,43 @@ public class MainActivity extends AppCompatActivity
     } // onCreate closed
     public void onClickStart(View view)
     {
-
-        JobScheduler jobScheduler = (JobScheduler) getSystemService(Context.JOB_SCHEDULER_SERVICE);
-        JobInfo jobInfo = new JobInfo.Builder(1,new ComponentName(MainActivity.this,MyService.class))
-                .setMinimumLatency(0)
-                .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
-                .setPersisted(true)
-                .setPeriodic(15*60*1000)
+        Constraints constraints = new Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build();
-            jobScheduler.schedule(jobInfo);
-        progressBar.setVisibility(View.VISIBLE);
-        Toast.makeText(MainActivity.this, "Job Scheduled", Toast.LENGTH_SHORT).show();
+
+        Data data = new Data.Builder()
+                .putString("hello","Hello Worker")
+                .build();
+        WorkRequest workRequest = new OneTimeWorkRequest.Builder(MyWorker.class)
+                .setConstraints(constraints  )
+                .setInputData(data)
+                .build();
+
+        uuid = workRequest.getId();
+        WorkManager.getInstance(context).enqueue(workRequest);
+
+        WorkManager.getInstance(context).getWorkInfoByIdLiveData(workRequest.getId()).observe(MainActivity.this, new Observer<WorkInfo>()
+        {
+            @Override
+            public void onChanged(WorkInfo workInfo)
+            {
+                if(workInfo.getState() == WorkInfo.State.SUCCEEDED)
+                {
+                    textView.setText(workInfo.getOutputData().getString("time"));
+                }
+            }
+        });
+
     } // onClickStart closed
     public void onClickCanceled(View view)
     {
-        JobScheduler jobScheduler = (JobScheduler) getSystemService(Context.JOB_SCHEDULER_SERVICE);
-        jobScheduler.cancel(1);
-        progressBar.setVisibility(View.GONE);
-        Toast.makeText(MainActivity.this, "Job Canceled", Toast.LENGTH_SHORT).show();
+        WorkManager workManager = WorkManager.getInstance(context);
+        workManager.cancelWorkById(uuid);
     }
 
     @Override
     protected void onStart()
     {
         super.onStart();
-        registerReceiver(broadcastReceiver,new IntentFilter("Response"));
     }
 } // MainActivity closed

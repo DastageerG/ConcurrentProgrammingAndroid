@@ -11,7 +11,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:onClick="onClickStart"
-        android:text="Start Job"
+        android:text="Start Work"
         android:textAllCaps="false" />
 
 
